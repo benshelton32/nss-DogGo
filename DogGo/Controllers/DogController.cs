@@ -1,9 +1,11 @@
 ﻿using DogGo.Models;
 using DogGo.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 
 namespace DogGo.Controllers
 {
@@ -18,9 +20,12 @@ namespace DogGo.Controllers
         }
 
         // GET: DogsController
+        [Authorize]
         public ActionResult Index()
         {
-            List<Dog> dogs = _dogRepo.GetAllDogs();
+            int ownerId = GetCurrentUserId();
+
+            List<Dog> dogs = _dogRepo.GetDogsByOwnerId(ownerId);
 
             return View(dogs);
         }
@@ -39,6 +44,7 @@ namespace DogGo.Controllers
         }
 
         // GET: DogsController/Create
+        [Authorize]
         public ActionResult Create()
         {
             return View();
@@ -51,6 +57,9 @@ namespace DogGo.Controllers
         {
             try
             {
+                // update the dogs OwnerId to the current user's Id
+                dog.OwnerId = GetCurrentUserId();
+
                 _dogRepo.AddDog(dog);
 
                 return RedirectToAction("Index");
@@ -67,6 +76,9 @@ namespace DogGo.Controllers
             Dog dog = _dogRepo.GetDogById(id);
 
             if (dog == null)
+            {
+                return NotFound();
+            } else if (dog.OwnerId != GetCurrentUserId())
             {
                 return NotFound();
             }
@@ -96,6 +108,11 @@ namespace DogGo.Controllers
         {
             Dog dog = _dogRepo.GetDogById(id);
 
+            if (dog.OwnerId != GetCurrentUserId())
+            {
+                return NotFound();
+            }
+
             return View(dog);
         }
 
@@ -114,6 +131,12 @@ namespace DogGo.Controllers
             {
                 return View(dog);
             }
+        }
+
+        private int GetCurrentUserId()
+        {
+            string id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.Parse(id);
         }
     }
 }
